@@ -1,3 +1,7 @@
+/**
+ * @deprecated This mock API is no longer used. The app uses the RunPod API (src/api/runpod.ts) for real Pod control.
+ * Kept for reference or optional "demo mode" in the future.
+ */
 export type VMStatus = 'running' | 'stopped';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
