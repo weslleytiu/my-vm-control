@@ -72,10 +72,12 @@ export default function Dashboard() {
   };
 
   const loadPods = useCallback(async () => {
+    console.log('[Bob Control VM Dashboard] loadPods start');
     setLoading(true);
     setError(null);
     try {
       const list = await listPods({ includeMachine: true });
+      console.log('[Bob Control VM Dashboard] loadPods ok', 'count', list.length, list.length > 0 ? 'first id' : '', list[0]?.id);
       setPods(list);
       if (list.length > 0) {
         setSelectedPodId((prev) => {
@@ -85,6 +87,7 @@ export default function Dashboard() {
       }
     } catch (err) {
       const apiErr = err instanceof RunPodApiError ? err : null;
+      console.log('[Bob Control VM Dashboard] loadPods error', apiErr?.code, apiErr?.message, err);
       if (apiErr?.code === 'API_KEY_NOT_CONFIGURED') {
         setError('Set RUNPOD_API_KEY in the server .env file and restart the server.');
       } else if (apiErr?.code === 'UNAUTHORIZED') {

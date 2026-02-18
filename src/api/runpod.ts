@@ -2,6 +2,12 @@ const API_BASE =
   import.meta.env.VITE_API_URL?.trim() ??
   (import.meta.env.DEV ? 'http://localhost:3000/api' : '');
 
+const DEBUG = true;
+function log(...args: unknown[]) {
+  if (DEBUG) console.log('[Bob Control VM API]', ...args);
+}
+log('API_BASE', API_BASE || '(relative)', 'DEV', import.meta.env.DEV);
+
 export type PodDesiredStatus = 'RUNNING' | 'EXITED' | 'TERMINATED';
 
 export interface RunPodGpu {
@@ -59,6 +65,7 @@ export class RunPodApiError extends Error {
 
 async function runpodFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const url = `${API_BASE}${path}`;
+  log('fetch', options.method || 'GET', url);
   const headers: HeadersInit = {
     ...(options.headers as Record<string, string>),
   };
@@ -67,8 +74,10 @@ async function runpodFetch(path: string, options: RequestInit = {}): Promise<Res
   }
   try {
     const res = await fetch(url, { ...options, headers });
+    log('fetch response', res.status, res.statusText, url);
     return res;
   } catch (e) {
+    log('fetch error', e);
     const message = e instanceof Error ? e.message : 'Network request failed';
     throw new RunPodApiError(message, undefined, 'NETWORK');
   }
@@ -81,6 +90,10 @@ async function handleResponse<T>(res: Response, parse: (data: unknown) => T): Pr
     body = text ? JSON.parse(text) : null;
   } catch {
     body = null;
+  }
+
+  if (!res.ok || res.status === 503) {
+    log('handleResponse non-ok', res.status, typeof body === 'object' && body !== null ? (body as { code?: string; error?: string }).code : null, text.slice(0, 200));
   }
 
   if (res.status === 503) {
@@ -125,10 +138,13 @@ export async function listPods(options: ListPodsOptions = {}): Promise<RunPodPod
   }
   const query = params.toString();
   const path = query ? `/pods?${query}` : '/pods';
+  log('listPods', path);
   const res = await runpodFetch(path);
   const data = await handleResponse(res, (body) => body as RunPodPod[]);
   const pods = Array.isArray(data) ? data : [];
-  return pods.filter((p) => !p.endpointId);
+  const filtered = pods.filter((p) => !p.endpointId);
+  log('listPods result', 'raw count', pods.length, 'after filter', filtered.length);
+  return filtered;
 }
 
 /**
