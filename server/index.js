@@ -105,6 +105,21 @@ app.post('/api/pods/:id/stop', getRunPodKey, async (req, res) => {
   }
 });
 
+app.post('/api/pods/:id/restart', getRunPodKey, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const path = `/pods/${encodeURIComponent(id)}/restart`;
+    const { status, body } = await proxyToRunPod(path, {
+      apiKey: req.runpodKey,
+      method: 'POST',
+    });
+    res.status(status).json(body ?? {});
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Proxy request failed', message: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`RunPod proxy running at http://localhost:${PORT}`);
   if (!process.env.RUNPOD_API_KEY?.trim()) {

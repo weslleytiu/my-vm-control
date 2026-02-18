@@ -202,3 +202,27 @@ export async function stopPod(podId: string): Promise<void> {
     throw new RunPodApiError(`Failed to stop pod: ${res.status}`, res.status, 'UNKNOWN');
   }
 }
+
+/**
+ * Restart a Pod.
+ */
+export async function restartPod(podId: string): Promise<void> {
+  const res = await runpodFetch(`/pods/${encodeURIComponent(podId)}/restart`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let body: unknown;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = null;
+    }
+    if (res.status === 503 && body && typeof body === 'object' && 'code' in body && (body as { code: string }).code === 'API_KEY_NOT_CONFIGURED') {
+      throw new RunPodApiError('Server not configured. Set RUNPOD_API_KEY in the server .env.', 503, 'API_KEY_NOT_CONFIGURED');
+    }
+    if (res.status === 401) throw new RunPodApiError('Invalid or expired API key', 401, 'UNAUTHORIZED');
+    if (res.status === 404) throw new RunPodApiError('Pod not found', 404, 'NOT_FOUND');
+    throw new RunPodApiError(`Failed to restart pod: ${res.status}`, res.status, 'UNKNOWN');
+  }
+}

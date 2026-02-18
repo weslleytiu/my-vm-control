@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle, Terminal, Copy, ExternalLink } from 'lucide-react';
-import { listPods, startPod, stopPod, RunPodApiError, type RunPodPod } from '../api/runpod';
+import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle, Terminal, Copy, ExternalLink, RotateCw } from 'lucide-react';
+import { listPods, startPod, stopPod, restartPod, RunPodApiError, type RunPodPod } from '../api/runpod';
 import Settings from './Settings';
 
 const RUNPOD_CONSOLE_PODS_URL = 'https://console.runpod.io/pods';
@@ -137,6 +137,33 @@ export default function Dashboard() {
         setError('Network error. Please try again.');
       } else {
         setError(apiErr?.message ?? 'Action failed.');
+      }
+    } finally {
+      setActionLoading(false);
+      setActionMessage('');
+    }
+  };
+
+  const handleRestartPod = async () => {
+    const pod = selectedPodId ? pods.find((p) => p.id === selectedPodId) : null;
+    if (!pod) return;
+    setActionLoading(true);
+    setActionMessage('Restarting pod...');
+    setError(null);
+    try {
+      await restartPod(pod.id);
+      await loadPods();
+    } catch (err) {
+      const apiErr = err instanceof RunPodApiError ? err : null;
+      if (apiErr?.code === 'UNAUTHORIZED') {
+        setError('Invalid RunPod API key. Update RUNPOD_API_KEY in the server .env file.');
+      } else if (apiErr?.code === 'NOT_FOUND') {
+        setError('Pod no longer exists. Refreshing list.');
+        await loadPods();
+      } else if (apiErr?.code === 'NETWORK') {
+        setError('Network error. Please try again.');
+      } else {
+        setError(apiErr?.message ?? 'Restart failed.');
       }
     } finally {
       setActionLoading(false);
@@ -362,22 +389,35 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    <button
-                      onClick={handleTogglePod}
-                      disabled={actionLoading || selectedPod.locked}
-                      className={`w-full py-4 rounded-lg font-semibold text-lg flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        isPodRunning(selectedPod)
-                          ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/20'
-                          : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20'
-                      }`}
-                    >
-                      <Power className="w-6 h-6" />
-                      {actionLoading
-                        ? 'Processing...'
-                        : isPodRunning(selectedPod)
-                          ? 'Stop Pod'
-                          : 'Start Pod'}
-                    </button>
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={handleTogglePod}
+                        disabled={actionLoading || selectedPod.locked}
+                        className={`w-full py-4 rounded-lg font-semibold text-lg flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isPodRunning(selectedPod)
+                            ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/20'
+                            : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20'
+                        }`}
+                      >
+                        <Power className="w-6 h-6" />
+                        {actionLoading
+                          ? 'Processing...'
+                          : isPodRunning(selectedPod)
+                            ? 'Stop Pod'
+                            : 'Start Pod'}
+                      </button>
+                      {isPodRunning(selectedPod) && (
+                        <button
+                          type="button"
+                          onClick={handleRestartPod}
+                          disabled={actionLoading || selectedPod.locked}
+                          className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <RotateCw className="w-5 h-5" />
+                          Restart Pod
+                        </button>
+                      )}
+                    </div>
                     {selectedPod.locked && (
                       <p className="mt-2 text-sm text-gray-500 text-center">
                         This pod is locked and cannot be stopped from here.
