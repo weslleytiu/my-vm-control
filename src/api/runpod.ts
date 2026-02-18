@@ -19,6 +19,13 @@ export interface RunPodMachine {
   cpuType?: { displayName?: string };
 }
 
+export interface RunPodNetworkVolume {
+  id?: string;
+  name?: string;
+  size?: number;
+  dataCenterId?: string;
+}
+
 export interface RunPodPod {
   id: string;
   name?: string | null;
@@ -32,6 +39,11 @@ export interface RunPodPod {
   machine?: RunPodMachine | null;
   endpointId?: string | null;
   locked?: boolean;
+  containerDiskInGb?: number;
+  volumeInGb?: number;
+  networkVolume?: RunPodNetworkVolume | null;
+  /** Port mappings: internal port -> external port (e.g. { "22": 17445 } for SSH) */
+  portMappings?: Record<string, number> | null;
 }
 
 export class RunPodApiError extends Error {

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle } from 'lucide-react';
+import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle, Terminal, Copy, ExternalLink } from 'lucide-react';
 import { listPods, startPod, stopPod, RunPodApiError, type RunPodPod } from '../api/runpod';
 import Settings from './Settings';
 
-const RUNPOD_CONSOLE_PODS_URL = 'https://www.runpod.io/console/pods';
+const RUNPOD_CONSOLE_PODS_URL = 'https://console.runpod.io/pods';
 
 function formatPodStatus(status: RunPodPod['desiredStatus']): string {
   switch (status) {
@@ -38,6 +38,21 @@ function getRegion(pod: RunPodPod): string {
   return pod.machine?.dataCenterId ?? pod.machine?.location ?? '—';
 }
 
+function getDiskSummary(pod: RunPodPod): string {
+  const parts: string[] = [];
+  if (pod.containerDiskInGb != null) parts.push(`${pod.containerDiskInGb} GB container`);
+  if (pod.volumeInGb != null) parts.push(`${pod.volumeInGb} GB volume`);
+  if (pod.networkVolume?.size != null) parts.push(`${pod.networkVolume.size} GB network`);
+  return parts.length > 0 ? parts.join(', ') : '—';
+}
+
+function getSshCommand(pod: RunPodPod): string | null {
+  const ip = pod.publicIp?.trim();
+  const port = pod.portMappings?.['22'];
+  if (!ip || !port) return null;
+  return `ssh root@${ip} -p ${port} -i ~/.ssh/id_ed25519`;
+}
+
 export default function Dashboard() {
   const { logout } = useAuth();
   const [pods, setPods] = useState<RunPodPod[]>([]);
@@ -47,6 +62,14 @@ export default function Dashboard() {
   const [actionMessage, setActionMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopySsh = (cmd: string) => {
+    navigator.clipboard.writeText(cmd).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const loadPods = useCallback(async () => {
     setLoading(true);
@@ -270,6 +293,10 @@ export default function Dashboard() {
                           <p className="text-gray-400 mb-1">Memory</p>
                           <p className="text-white font-medium">{selectedPod.memoryInGb} GB</p>
                         </div>
+                        <div className="col-span-2">
+                          <p className="text-gray-400 mb-1">Disk</p>
+                          <p className="text-white font-medium text-sm">{getDiskSummary(selectedPod)}</p>
+                        </div>
                         {selectedPod.costPerHr != null && (
                           <div>
                             <p className="text-gray-400 mb-1">Cost</p>
@@ -285,6 +312,44 @@ export default function Dashboard() {
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    <div className="bg-gray-900/50 rounded-lg p-4 mb-6">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Terminal className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm font-medium text-gray-300">Connect / Terminal</span>
+                      </div>
+                      <p className="text-gray-400 text-xs mb-3">
+                        Use SSH in your machine or open the web terminal in RunPod.
+                      </p>
+                      {getSshCommand(selectedPod) ? (
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <code className="flex-1 min-w-0 text-xs text-green-400 bg-gray-800 px-2 py-2 rounded break-all">
+                            {getSshCommand(selectedPod)}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => getSshCommand(selectedPod) && handleCopySsh(getSshCommand(selectedPod)!)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-xs shrink-0"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            {copied ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-xs mb-3">
+                          SSH (root@IP -p port) is available when the pod is running and has port 22 exposed.
+                        </p>
+                      )}
+                      <a
+                        href={RUNPOD_CONSOLE_PODS_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:underline"
+                      >
+                        Open RunPod Console → Connect → Web Terminal or SSH
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
                     </div>
 
                     {actionLoading && (
