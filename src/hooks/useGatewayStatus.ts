@@ -30,7 +30,8 @@ export function useGatewayStatus({
       });
       
       clearTimeout(timeoutId);
-      setStatus(res.ok ? 'online' : 'error');
+      // Any 2xx response means gateway is online (even if it returns HTML)
+      setStatus(res.status >= 200 && res.status < 300 ? 'online' : 'error');
       setLastChecked(new Date());
     } catch (err) {
       setStatus('offline');
