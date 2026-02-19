@@ -179,6 +179,21 @@ app.post('/api/pods/:id/restart', getRunPodKey, async (req, res) => {
   }
 });
 
+app.post('/api/pods/:id/reset', getRunPodKey, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const path = `/pods/${encodeURIComponent(id)}/reset`;
+    const { status, body } = await proxyToRunPodExpress(path, {
+      apiKey: req.runpodKey,
+      method: 'POST',
+    });
+    res.status(status).json(body ?? {});
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Proxy request failed', message: err.message });
+  }
+});
+
 // Gateway routes
 const GATEWAY_URL = 'https://oyxpvo2t8uxuuk-18789.proxy.runpod.net';
 const GATEWAY_TOKEN = 'dcb99a5cbec2dfd354b3303e6bd8e986bb1395f4e6cbeb2d';

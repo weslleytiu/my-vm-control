@@ -21,6 +21,12 @@ function getIdFromPath(pathname) {
   return segments[2] || null;
 }
 
+/** Normalize private key from env: restore newlines if stored as literal \\n */
+function normalizePrivateKey(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+  return raw.trim().replace(/\\n/g, '\n');
+}
+
 async function getPodSshDetails(podId, apiKey) {
   const { status, body } = await proxyToRunPod(`/pods/${encodeURIComponent(podId)}?includeMachine=true`, { apiKey });
   if (status !== 200 || !body) {
@@ -70,7 +76,7 @@ async function executeSshCommand(ip, port, command, privateKeyContent) {
       host: ip,
       port: port,
       username: 'root',
-      privateKey: typeof privateKeyContent === 'string' ? privateKeyContent : privateKeyContent,
+      privateKey: privateKeyContent,
       readyTimeout: 20000,
       keepaliveInterval: 5000,
     });
@@ -92,7 +98,7 @@ export default {
       return jsonResponse(body, status);
     }
 
-    const privateKeyContent = process.env.SSH_PRIVATE_KEY?.trim();
+    let privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
     if (!privateKeyContent) {
       return jsonResponse({
         error: 'SSH not configured',

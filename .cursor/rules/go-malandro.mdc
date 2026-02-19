@@ -1,0 +1,13 @@
+---
+description: When user says "go malandro", commit and push to main
+alwaysApply: true
+---
+
+# Go Malandro
+
+When the user says **"go malandro"** (or equivalent like "go malandro!", "malandro", etc.):
+
+1. Run the project script: `./scripts/go-malandro.sh`
+2. Optional: if the user provided a commit message in the same message, pass it as the first argument, e.g. `./scripts/go-malandro.sh "fix: something"`
+
+The script stages all changes, commits (with the given message or default "chore: update"), and pushes to `origin main`. Do not ask for confirmation; run it from the project root.
