@@ -44,7 +44,7 @@ export default function GatewayStatusCard() {
 
       <div className="mt-4 pt-4 border-t border-gray-700">
         <p className="text-gray-400 text-xs">
-          URL: <span className="text-gray-500 font-mono">{url}</span>
+          URL: <span className="text-gray-500 font-mono">https://oyxpvo2t8uxuuk-18789.proxy.runpod.net</span>
         </p>
       </div>
     </div>
