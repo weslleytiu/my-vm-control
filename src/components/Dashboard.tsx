@@ -182,7 +182,9 @@ export default function Dashboard() {
     setSetupOutput(null);
     setError(null);
     try {
-      const { output } = await execPod(pod.id, 'source /workspace/env.sh');
+      // Source env and print confirmation so output is visible; use semicolons so we see output even if one part fails
+      const cmd = 'source /workspace/env.sh 2>&1; echo "--- Env loaded ---"; (python --version 2>&1 || true); (node -v 2>&1 || true)';
+      const { output } = await execPod(pod.id, cmd);
       setSetupOutput(output || 'Command completed.');
     } catch (err) {
       const apiErr = err instanceof RunPodApiError ? err : null;
@@ -443,6 +445,9 @@ export default function Dashboard() {
                             )}
                             Run setup
                           </button>
+                          <p className="text-gray-500 text-xs mt-1">
+                            Runs in a one-off session. When you SSH in, run <code className="bg-gray-800 px-1 rounded">source /workspace/env.sh</code> again if you need the env there.
+                          </p>
                           {setupOutput !== null && (
                             <pre className="min-w-0 p-2 text-xs text-gray-300 bg-gray-800 rounded overflow-auto max-h-32">
                               {setupOutput}
