@@ -34,6 +34,7 @@ export function useGatewayStatus({
       setStatus(res.status >= 200 && res.status < 300 ? 'online' : 'error');
       setLastChecked(new Date());
     } catch (err) {
+      console.error('[GatewayStatus] Check failed:', err);
       setStatus('offline');
       setLastChecked(new Date());
     }
