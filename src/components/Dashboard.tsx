@@ -182,8 +182,22 @@ export default function Dashboard() {
     setSetupOutput(null);
     setError(null);
     try {
-      // Source env and print confirmation so output is visible; use semicolons so we see output even if one part fails
-      const cmd = 'source /workspace/env.sh 2>&1; echo "--- Env loaded ---"; (python --version 2>&1 || true); (node -v 2>&1 || true)';
+      const proxyOrigin = `https://${pod.id}-18789.proxy.runpod.net`;
+      const cmd = [
+        'bash -c "',
+        'export PATH=\"/workspace/.npm-global/bin:/usr/local/bin:$PATH\";',
+        '[ -f /workspace/env.sh ] && source /workspace/env.sh 2>/dev/null;',
+        '[ -d /workspace/.openclaw ] || mkdir -p /workspace/.openclaw;',
+        'ln -sf /workspace/.openclaw /root/.openclaw 2>/dev/null;',
+        `openclaw config set gateway.controlUi.allowedOrigins '[\\\"${proxyOrigin}\\\"]' 2>/dev/null;`,
+        'openclaw config set session.dmPolicy \\"open\\" 2>/dev/null;',
+        "openclaw config set session.allowFrom '[\\\"*\\\"]' 2>/dev/null;",
+        'pkill -f \\"openclaw gateway\\" 2>/dev/null; sleep 1;',
+        'nohup openclaw gateway --bind lan --port 18789 --force >> /workspace/openclaw-gateway.log 2>&1 &',
+        'sleep 2;',
+        `echo \\"--- OpenClaw setup done ---\\"; echo \\"Control UI: ${proxyOrigin}\\"`,
+        '"'
+      ].join(' ');
       const { output } = await execPod(pod.id, cmd);
       setSetupOutput(output || 'Command completed.');
     } catch (err) {
@@ -446,7 +460,7 @@ export default function Dashboard() {
                             Run setup
                           </button>
                           <p className="text-gray-500 text-xs mt-1">
-                            Runs in a one-off session. When you SSH in, run <code className="bg-gray-800 px-1 rounded">source /workspace/env.sh</code> again if you need the env there.
+                            Applies OpenClaw config (allowedOrigins, open pairing), starts gateway in background. After pod restart, click again to reconfigure and start.
                           </p>
                           {setupOutput !== null && (
                             <pre className="min-w-0 p-2 text-xs text-gray-300 bg-gray-800 rounded overflow-auto max-h-32">
