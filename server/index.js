@@ -205,27 +205,63 @@ app.get('/api/gateway-health', async (req, res) => {
   }
 });
 
-app.post('/api/gateway-restart', getRunPodKey, async (req, res) => {
+app.post('/api/gateway-start', getRunPodKey, async (req, res) => {
   const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
   const privateKeyPath = process.env.SSH_PRIVATE_KEY_PATH || '/root/.ssh/id_ed25519';
-  
+
   try {
     const sshDetails = await getPodSshDetails(gatewayPodId, req.runpodKey);
-    
+
     if (!sshDetails) {
       return res.status(503).json({
         error: 'Cannot connect to Gateway pod',
         details: 'Pod is not running or SSH is not available'
       });
     }
-    
+
+    const result = await executeSshCommand(
+      sshDetails.ip,
+      sshDetails.port,
+      'openclaw gateway start',
+      privateKeyPath
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Gateway start initiated',
+      output: result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Gateway Start Error]', error);
+    res.status(500).json({
+      error: 'Failed to start gateway',
+      details: error.message
+    });
+  }
+});
+
+app.post('/api/gateway-restart', getRunPodKey, async (req, res) => {
+  const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
+  const privateKeyPath = process.env.SSH_PRIVATE_KEY_PATH || '/root/.ssh/id_ed25519';
+
+  try {
+    const sshDetails = await getPodSshDetails(gatewayPodId, req.runpodKey);
+
+    if (!sshDetails) {
+      return res.status(503).json({
+        error: 'Cannot connect to Gateway pod',
+        details: 'Pod is not running or SSH is not available'
+      });
+    }
+
     const result = await executeSshCommand(
       sshDetails.ip,
       sshDetails.port,
       'openclaw gateway restart',
       privateKeyPath
     );
-    
+
     res.status(200).json({
       success: true,
       message: 'Gateway restart initiated',

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Activity, RefreshCw, RotateCw, Terminal, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Activity, RefreshCw, RotateCw, Terminal, X, AlertCircle, CheckCircle, Play } from 'lucide-react';
 import { useGatewayStatus, getStatusColor, getStatusDotColor, getStatusLabel } from '../hooks/useGatewayStatus';
 import { useGatewayControl } from '../hooks/useGatewayControl';
 
@@ -58,19 +58,23 @@ function LogModal({ isOpen, onClose, logs, isLoading, onRefresh }: LogModalProps
 
 export default function GatewayStatusCard() {
   const { status, lastChecked, checkNow } = useGatewayStatus({});
-  const { 
-    isRestarting, 
-    isLoadingLogs, 
-    logs, 
-    error, 
-    restartGateway, 
-    fetchLogs, 
-    clearLogs, 
-    clearError 
+  const {
+    isRestarting,
+    isStarting,
+    isLoadingLogs,
+    logs,
+    error,
+    restartGateway,
+    startGateway,
+    fetchLogs,
+    clearLogs,
+    clearError
   } = useGatewayControl();
   const [showLogs, setShowLogs] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [restartSuccess, setRestartSuccess] = useState(false);
+  const [startSuccess, setStartSuccess] = useState(false);
 
   const formatTime = (date: Date | null) => {
     if (!date) return 'Never';
@@ -81,13 +85,27 @@ export default function GatewayStatusCard() {
     setShowRestartConfirm(false);
     setRestartSuccess(false);
     clearError();
-    
+
     try {
       await restartGateway();
       setRestartSuccess(true);
       setTimeout(() => setRestartSuccess(false), 3000);
-      // Aguarda e verifica o status novamente
       setTimeout(checkNow, 3000);
+    } catch (err) {
+      // Erro já está no estado error
+    }
+  };
+
+  const handleStart = async () => {
+    setShowStartConfirm(false);
+    setStartSuccess(false);
+    clearError();
+
+    try {
+      await startGateway();
+      setStartSuccess(true);
+      setTimeout(() => setStartSuccess(false), 3000);
+      setTimeout(checkNow, 5000);
     } catch (err) {
       // Erro já está no estado error
     }
@@ -100,6 +118,7 @@ export default function GatewayStatusCard() {
   };
 
   const canRestart = status === 'online' && !isRestarting;
+  const canStart = status === 'offline' && !isStarting;
 
   return (
     <>
@@ -136,18 +155,25 @@ export default function GatewayStatusCard() {
         </div>
 
         {/* Mensagens de status */}
+        {startSuccess && (
+          <div className="mb-4 bg-green-900/30 border border-green-500/50 rounded-lg p-3 flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-green-400" />
+            <span className="text-green-400 text-sm">Gateway start initiated successfully</span>
+          </div>
+        )}
+
         {restartSuccess && (
           <div className="mb-4 bg-green-900/30 border border-green-500/50 rounded-lg p-3 flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-400" />
             <span className="text-green-400 text-sm">Gateway restart initiated successfully</span>
           </div>
         )}
-        
+
         {error && (
           <div className="mb-4 bg-red-900/30 border border-red-500/50 rounded-lg p-3 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-400" />
             <span className="text-red-400 text-sm">{error}</span>
-            <button 
+            <button
               onClick={clearError}
               className="ml-auto text-red-400 hover:text-red-300"
             >
@@ -158,16 +184,28 @@ export default function GatewayStatusCard() {
 
         {/* Botões de ação */}
         <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-700">
-          <button
-            onClick={() => setShowRestartConfirm(true)}
-            disabled={!canRestart}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
-            title={!canRestart ? 'Gateway must be online to restart' : 'Restart Gateway'}
-          >
-            <RotateCw className={`w-4 h-4 ${isRestarting ? 'animate-spin' : ''}`} />
-            {isRestarting ? 'Restarting...' : 'Restart Gateway'}
-          </button>
-          
+          {status === 'offline' ? (
+            <button
+              onClick={() => setShowStartConfirm(true)}
+              disabled={!canStart}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              title={!canStart ? 'Cannot start gateway now' : 'Start Gateway'}
+            >
+              <Play className={`w-4 h-4 ${isStarting ? 'animate-pulse' : ''}`} />
+              {isStarting ? 'Starting...' : 'Start Gateway'}
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowRestartConfirm(true)}
+              disabled={!canRestart}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              title={!canRestart ? 'Gateway must be online to restart' : 'Restart Gateway'}
+            >
+              <RotateCw className={`w-4 h-4 ${isRestarting ? 'animate-spin' : ''}`} />
+              {isRestarting ? 'Restarting...' : 'Restart Gateway'}
+            </button>
+          )}
+
           <button
             onClick={handleShowLogs}
             className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
@@ -183,6 +221,32 @@ export default function GatewayStatusCard() {
           </p>
         </div>
       </div>
+
+      {/* Modal de confirmação de start */}
+      {showStartConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-white mb-2">Start Gateway?</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              This will start the OpenClaw Gateway service on the running pod.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowStartConfirm(false)}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStart}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                Start
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmação de restart */}
       {showRestartConfirm && (

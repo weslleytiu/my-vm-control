@@ -2,10 +2,12 @@ import { useState, useCallback } from 'react';
 
 interface UseGatewayControlReturn {
   isRestarting: boolean;
+  isStarting: boolean;
   isLoadingLogs: boolean;
   logs: string;
   error: string | null;
   restartGateway: () => Promise<void>;
+  startGateway: () => Promise<void>;
   fetchLogs: (lines?: number) => Promise<void>;
   clearLogs: () => void;
   clearError: () => void;
@@ -13,6 +15,7 @@ interface UseGatewayControlReturn {
 
 export function useGatewayControl(): UseGatewayControlReturn {
   const [isRestarting, setIsRestarting] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [logs, setLogs] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -25,13 +28,13 @@ export function useGatewayControl(): UseGatewayControlReturn {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || data.details || 'Failed to restart gateway');
       }
-      
+
       // Aguarda um pouco e verifica o status
       await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (err) {
@@ -40,6 +43,32 @@ export function useGatewayControl(): UseGatewayControlReturn {
       throw err;
     } finally {
       setIsRestarting(false);
+    }
+  }, []);
+
+  const startGateway = useCallback(async () => {
+    setIsStarting(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/gateway-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.details || 'Failed to start gateway');
+      }
+
+      // Aguarda um pouco e verifica o status
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
+      throw err;
+    } finally {
+      setIsStarting(false);
     }
   }, []);
 
@@ -74,10 +103,12 @@ export function useGatewayControl(): UseGatewayControlReturn {
 
   return {
     isRestarting,
+    isStarting,
     isLoadingLogs,
     logs,
     error,
     restartGateway,
+    startGateway,
     fetchLogs,
     clearLogs,
     clearError
