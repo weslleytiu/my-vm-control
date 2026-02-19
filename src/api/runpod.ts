@@ -215,7 +215,10 @@ export async function restartPod(podId: string): Promise<void> {
     }
     if (res.status === 401) throw new RunPodApiError('Invalid or expired API key', 401, 'UNAUTHORIZED');
     if (res.status === 404) throw new RunPodApiError('Pod not found', 404, 'NOT_FOUND');
-    throw new RunPodApiError(`Failed to restart pod: ${res.status}`, res.status, 'UNKNOWN');
+    const errBody = body && typeof body === 'object' && body !== null ? (body as { error?: string; message?: string; details?: string }) : {};
+    const detail = errBody.error || errBody.message || errBody.details;
+    const message = detail ? `Restart failed: ${detail}` : `Failed to restart pod: ${res.status}`;
+    throw new RunPodApiError(message, res.status, 'UNKNOWN');
   }
 }
 

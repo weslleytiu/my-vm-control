@@ -41,7 +41,13 @@ export default {
     try {
       const path = `/pods/${encodeURIComponent(id)}/restart`;
       const { status, body } = await proxyToRunPod(path, { apiKey: key, method: 'POST' });
-      return jsonResponse(body ?? {}, status);
+      const payload = body && typeof body === 'object' && !Array.isArray(body)
+        ? body
+        : { error: 'RunPod API error', details: status, message: typeof body === 'string' ? body : 'Restart failed' };
+      if (status >= 400) {
+        console.error('[restart] RunPod responded', status, payload);
+      }
+      return jsonResponse(payload, status);
     } catch (err) {
       console.error(err);
       return jsonResponse({ error: 'Proxy request failed', message: err.message }, 502);
