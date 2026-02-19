@@ -23,7 +23,7 @@ export default function GatewayStatusCard({ url, token }: GatewayStatusCardProps
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white">OpenClaw Gateway</h3>
-            <p className="text-gray-400 text-sm">Monitoramento do Gateway</p>
+            <p className="text-gray-400 text-sm">Status do Gateway</p>
           </div>
         </div>
         <button
