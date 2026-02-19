@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle, Terminal, Copy, ExternalLink, RotateCw } from 'lucide-react';
-import { listPods, startPod, stopPod, restartPod, RunPodApiError, type RunPodPod } from '../api/runpod';
+import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle, Terminal, Copy, ExternalLink, RotateCw, Play, Trash2 } from 'lucide-react';
+import { listPods, startPod, stopPod, restartPod, resetPod, execPod, RunPodApiError, type RunPodPod } from '../api/runpod';
 import Settings from './Settings';
 import GatewayStatusCard from './GatewayStatusCard';
 
@@ -64,6 +64,9 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [setupOutput, setSetupOutput] = useState<string | null>(null);
 
   const handleCopySsh = (cmd: string) => {
     navigator.clipboard.writeText(cmd).then(() => {
@@ -165,6 +168,57 @@ export default function Dashboard() {
         setError('Network error. Please try again.');
       } else {
         setError(apiErr?.message ?? 'Restart failed.');
+      }
+    } finally {
+      setActionLoading(false);
+      setActionMessage('');
+    }
+  };
+
+  const handleRunSetup = async () => {
+    const pod = selectedPodId ? pods.find((p) => p.id === selectedPodId) : null;
+    if (!pod) return;
+    setSetupLoading(true);
+    setSetupOutput(null);
+    setError(null);
+    try {
+      const { output } = await execPod(pod.id, 'source /workspace/env.sh');
+      setSetupOutput(output || 'Command completed.');
+    } catch (err) {
+      const apiErr = err instanceof RunPodApiError ? err : null;
+      if (apiErr?.code === 'API_KEY_NOT_CONFIGURED') {
+        setError('Set RUNPOD_API_KEY in the server .env file.');
+      } else if (apiErr?.code === 'NETWORK') {
+        setError('Cannot reach the server. Start it with: npm run server');
+      } else {
+        setError(apiErr?.message ?? 'Run setup failed.');
+      }
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  const handleResetPod = async () => {
+    const pod = selectedPodId ? pods.find((p) => p.id === selectedPodId) : null;
+    if (!pod) return;
+    setShowResetConfirm(false);
+    setActionLoading(true);
+    setActionMessage('Resetting pod...');
+    setError(null);
+    try {
+      await resetPod(pod.id);
+      await loadPods();
+    } catch (err) {
+      const apiErr = err instanceof RunPodApiError ? err : null;
+      if (apiErr?.code === 'UNAUTHORIZED') {
+        setError('Invalid RunPod API key. Update RUNPOD_API_KEY in the server .env file.');
+      } else if (apiErr?.code === 'NOT_FOUND') {
+        setError('Pod no longer exists. Refreshing list.');
+        await loadPods();
+      } else if (apiErr?.code === 'NETWORK') {
+        setError('Network error. Please try again.');
+      } else {
+        setError(apiErr?.message ?? 'Reset failed.');
       }
     } finally {
       setActionLoading(false);
@@ -374,11 +428,33 @@ export default function Dashboard() {
                           SSH (root@IP -p port) is available when the pod is running and has port 22 exposed.
                         </p>
                       )}
+                      {getSshCommand(selectedPod) && (
+                        <div className="mt-3 flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={handleRunSetup}
+                            disabled={setupLoading || actionLoading}
+                            className="inline-flex items-center gap-1.5 w-fit px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs transition-colors"
+                          >
+                            {setupLoading ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5" />
+                            )}
+                            Run setup
+                          </button>
+                          {setupOutput !== null && (
+                            <pre className="min-w-0 p-2 text-xs text-gray-300 bg-gray-800 rounded overflow-auto max-h-32">
+                              {setupOutput}
+                            </pre>
+                          )}
+                        </div>
+                      )}
                       <a
                         href={RUNPOD_CONSOLE_PODS_URL}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:underline"
+                        className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:underline mt-3"
                       >
                         Open RunPod Console → Connect → Web Terminal or SSH
                         <ExternalLink className="w-3 h-3" />
@@ -410,15 +486,26 @@ export default function Dashboard() {
                             : 'Start Pod'}
                       </button>
                       {isPodRunning(selectedPod) && (
-                        <button
-                          type="button"
-                          onClick={handleRestartPod}
-                          disabled={actionLoading || selectedPod.locked}
-                          className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <RotateCw className="w-5 h-5" />
-                          Restart Pod
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleRestartPod}
+                            disabled={actionLoading || selectedPod.locked}
+                            className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <RotateCw className="w-5 h-5" />
+                            Restart Pod
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowResetConfirm(true)}
+                            disabled={actionLoading || selectedPod.locked}
+                            className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                            Reset machine
+                          </button>
+                        </>
                       )}
                     </div>
                     {selectedPod.locked && (
@@ -433,6 +520,31 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+
+      {showResetConfirm && selectedPod && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-white mb-2">Reset machine completely?</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              Do you really want to reset? This will erase everything.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetPod}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Settings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>

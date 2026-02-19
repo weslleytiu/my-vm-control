@@ -148,14 +148,6 @@ export async function listPods(options: ListPodsOptions = {}): Promise<RunPodPod
 }
 
 /**
- * Get a single Pod by ID.
- */
-export async function getPod(podId: string): Promise<RunPodPod> {
-  const res = await runpodFetch(`/pods/${encodeURIComponent(podId)}?includeMachine=true`);
-  return await handleResponse(res, (body) => body as RunPodPod);
-}
-
-/**
  * Start or resume a Pod.
  */
 export async function startPod(podId: string): Promise<void> {
@@ -225,4 +217,40 @@ export async function restartPod(podId: string): Promise<void> {
     if (res.status === 404) throw new RunPodApiError('Pod not found', 404, 'NOT_FOUND');
     throw new RunPodApiError(`Failed to restart pod: ${res.status}`, res.status, 'UNKNOWN');
   }
+}
+
+/**
+ * Reset a Pod (erase everything).
+ */
+export async function resetPod(podId: string): Promise<void> {
+  const res = await runpodFetch(`/pods/${encodeURIComponent(podId)}/reset`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let body: unknown;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = null;
+    }
+    if (res.status === 503 && body && typeof body === 'object' && 'code' in body && (body as { code: string }).code === 'API_KEY_NOT_CONFIGURED') {
+      throw new RunPodApiError('Server not configured. Set RUNPOD_API_KEY in the server .env.', 503, 'API_KEY_NOT_CONFIGURED');
+    }
+    if (res.status === 401) throw new RunPodApiError('Invalid or expired API key', 401, 'UNAUTHORIZED');
+    if (res.status === 404) throw new RunPodApiError('Pod not found', 404, 'NOT_FOUND');
+    throw new RunPodApiError(`Failed to reset pod: ${res.status}`, res.status, 'UNKNOWN');
+  }
+}
+
+/**
+ * Execute a command on a Pod via SSH (e.g. Run setup).
+ */
+export async function execPod(podId: string, command: string): Promise<{ output: string }> {
+  const res = await runpodFetch(`/pods/${encodeURIComponent(podId)}/exec`, {
+    method: 'POST',
+    body: JSON.stringify({ command }),
+  });
+  const data = await handleResponse(res, (body) => body as { output?: string });
+  return { output: data.output ?? '' };
 }
