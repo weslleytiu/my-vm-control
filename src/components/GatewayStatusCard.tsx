@@ -1,13 +1,8 @@
 import { Activity, RefreshCw } from 'lucide-react';
 import { useGatewayStatus, getStatusColor, getStatusDotColor, getStatusLabel } from '../hooks/useGatewayStatus';
 
-interface GatewayStatusCardProps {
-  url: string;
-  token: string;
-}
-
-export default function GatewayStatusCard({ url, token }: GatewayStatusCardProps) {
-  const { status, lastChecked, checkNow } = useGatewayStatus({ url, token });
+export default function GatewayStatusCard() {
+  const { status, lastChecked, checkNow } = useGatewayStatus({});
 
   const formatTime = (date: Date | null) => {
     if (!date) return 'Never';

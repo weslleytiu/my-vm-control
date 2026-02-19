@@ -3,18 +3,16 @@ import { useState, useEffect, useCallback } from 'react';
 type GatewayStatus = 'checking' | 'online' | 'offline' | 'error';
 
 interface UseGatewayStatusOptions {
-  url: string;
-  token: string;
+  url?: string;
+  token?: string;
   intervalMs?: number;
   timeoutMs?: number;
 }
 
 export function useGatewayStatus({
-  url,
-  token,
   intervalMs = 30000,
   timeoutMs = 5000
-}: UseGatewayStatusOptions): { status: GatewayStatus; lastChecked: Date | null; checkNow: () => void } {
+}: Omit<UseGatewayStatusOptions, 'url' | 'token'>): { status: GatewayStatus; lastChecked: Date | null; checkNow: () => void } {
   const [status, setStatus] = useState<GatewayStatus>('checking');
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
@@ -24,21 +22,28 @@ export function useGatewayStatus({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       
-      const res = await fetch(`${url}/health`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+      // Use local API proxy to avoid CORS
+      const res = await fetch('/api/gateway-health', {
         signal: controller.signal
       });
       
       clearTimeout(timeoutId);
-      // Any 2xx response means gateway is online (even if it returns HTML)
-      setStatus(res.status >= 200 && res.status < 300 ? 'online' : 'error');
+      
+      if (!res.ok) {
+        setStatus('error');
+        setLastChecked(new Date());
+        return;
+      }
+      
+      const data = await res.json();
+      setStatus(data.status === 'online' ? 'online' : 'offline');
       setLastChecked(new Date());
     } catch (err) {
       console.error('[GatewayStatus] Check failed:', err);
       setStatus('offline');
       setLastChecked(new Date());
     }
-  }, [url, token, timeoutMs]);
+  }, [timeoutMs]);
 
   useEffect(() => {
     checkStatus();

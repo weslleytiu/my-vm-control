@@ -206,10 +206,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="max-w-2xl mx-auto">
-          <GatewayStatusCard
-            url="https://oyxpvo2t8uxuuk-18789.proxy.runpod.net"
-            token="dcb99a5cbec2dfd354b3303e6bd8e986bb1395f4e6cbeb2d"
-          />
+          <GatewayStatusCard />
 
           {loading && (
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 flex items-center justify-center gap-3">
