@@ -183,21 +183,22 @@ export default function Dashboard() {
     setError(null);
     try {
       const proxyOrigin = `https://${pod.id}-18789.proxy.runpod.net`;
-      const cmd = [
-        'bash -c "',
-        'export PATH=\"/workspace/.npm-global/bin:/usr/local/bin:$PATH\";',
-        '[ -f /workspace/env.sh ] && source /workspace/env.sh 2>/dev/null;',
-        '[ -d /workspace/.openclaw ] || mkdir -p /workspace/.openclaw;',
-        'ln -sf /workspace/.openclaw /root/.openclaw 2>/dev/null;',
-        `openclaw config set gateway.controlUi.allowedOrigins '[\\\"${proxyOrigin}\\\"]' 2>/dev/null;`,
-        'openclaw config set session.dmPolicy \\"open\\" 2>/dev/null;',
-        "openclaw config set session.allowFrom '[\\\"*\\\"]' 2>/dev/null;",
-        'pkill -f \\"openclaw gateway\\" 2>/dev/null; sleep 1;',
+      const script = [
+        'export PATH="/workspace/.npm-global/bin:/usr/local/bin:$PATH"',
+        '[ -f /workspace/env.sh ] && source /workspace/env.sh 2>/dev/null',
+        '[ -d /workspace/.openclaw ] || mkdir -p /workspace/.openclaw',
+        'ln -sf /workspace/.openclaw /root/.openclaw 2>/dev/null',
+        `openclaw config set gateway.controlUi.allowedOrigins '["${proxyOrigin}"]' 2>/dev/null`,
+        'openclaw config set session.dmPolicy "open" 2>/dev/null',
+        'openclaw config set session.allowFrom \'["*"]\' 2>/dev/null',
+        'pkill -f "openclaw gateway" 2>/dev/null; sleep 1',
         'nohup openclaw gateway --bind lan --port 18789 --force >> /workspace/openclaw-gateway.log 2>&1 &',
-        'sleep 2;',
-        `echo \\"--- OpenClaw setup done ---\\"; echo \\"Control UI: ${proxyOrigin}\\"`,
-        '"'
-      ].join(' ');
+        'sleep 2',
+        'echo "--- OpenClaw setup done ---"',
+        `echo "Control UI: ${proxyOrigin}"`,
+      ].join('\n');
+      const base64 = btoa(unescape(encodeURIComponent(script)));
+      const cmd = `echo '${base64}' | base64 -d | bash`;
       const { output } = await execPod(pod.id, cmd);
       setSetupOutput(output || 'Command completed.');
     } catch (err) {
