@@ -32,7 +32,12 @@ async function getPodSshDetails(podId, apiKey) {
   return { ip, port: parseInt(port, 10) };
 }
 
-async function executeSshCommand(ip, port, command, privateKeyPath) {
+function normalizePrivateKey(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+  return raw.trim().replace(/\\n/g, '\n');
+}
+
+async function executeSshCommand(ip, port, command, privateKeyContent) {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let output = '';
@@ -65,7 +70,7 @@ async function executeSshCommand(ip, port, command, privateKeyPath) {
       host: ip,
       port: port,
       username: 'root',
-      privateKey: require('fs').readFileSync(privateKeyPath),
+      privateKey: privateKeyContent,
       readyTimeout: 20000,
       keepaliveInterval: 5000,
     });
@@ -89,7 +94,14 @@ export default {
     }
 
     const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
-    const privateKeyPath = process.env.SSH_PRIVATE_KEY_PATH || '/root/.ssh/id_ed25519';
+    const privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
+    if (!privateKeyContent) {
+      return jsonResponse({
+        error: 'SSH not configured',
+        details: 'SSH_PRIVATE_KEY is not set. Set it in Vercel Environment Variables.',
+        code: 'SSH_KEY_NOT_CONFIGURED',
+      }, 503);
+    }
 
     try {
       const sshDetails = await getPodSshDetails(gatewayPodId, apiKey);
@@ -101,12 +113,11 @@ export default {
         }, 503);
       }
 
-      // Executa o comando de iniciar o Gateway
       const result = await executeSshCommand(
         sshDetails.ip,
         sshDetails.port,
-        'openclaw gateway start',
-        privateKeyPath
+        'export PATH="/workspace/.npm-global/bin:/usr/local/bin:$PATH"; openclaw gateway start',
+        privateKeyContent
       );
 
       return jsonResponse({

@@ -32,7 +32,12 @@ async function getPodSshDetails(podId, apiKey) {
   return { ip, port: parseInt(port, 10) };
 }
 
-async function executeSshCommand(ip, port, command, privateKeyPath) {
+function normalizePrivateKey(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+  return raw.trim().replace(/\\n/g, '\n');
+}
+
+async function executeSshCommand(ip, port, command, privateKeyContent) {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let output = '';
@@ -48,7 +53,6 @@ async function executeSshCommand(ip, port, command, privateKeyPath) {
         
         stream.on('close', (code, signal) => {
           conn.end();
-          // Logs podem retornar código não-zero se o arquivo não existir
           if (code !== 0 && !output) {
             reject(new Error(`Command failed with code ${code}: ${errorOutput}`));
           } else {
@@ -66,7 +70,7 @@ async function executeSshCommand(ip, port, command, privateKeyPath) {
       host: ip,
       port: port,
       username: 'root',
-      privateKey: require('fs').readFileSync(privateKeyPath),
+      privateKey: privateKeyContent,
       readyTimeout: 20000,
       keepaliveInterval: 5000,
     });
@@ -92,7 +96,14 @@ export default {
     const url = new URL(request.url);
     const lines = parseInt(url.searchParams.get('lines') || '100', 10);
     const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
-    const privateKeyPath = process.env.SSH_PRIVATE_KEY_PATH || '/root/.ssh/id_ed25519';
+    const privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
+    if (!privateKeyContent) {
+      return jsonResponse({
+        error: 'SSH not configured',
+        details: 'SSH_PRIVATE_KEY is not set. Set it in Vercel Environment Variables.',
+        code: 'SSH_KEY_NOT_CONFIGURED',
+      }, 503);
+    }
     
     try {
       const sshDetails = await getPodSshDetails(gatewayPodId, apiKey);
@@ -104,7 +115,6 @@ export default {
         }, 503);
       }
       
-      // Tenta obter logs de várias fontes possíveis
       const commands = [
         `journalctl -u openclaw -n ${lines} --no-pager 2>/dev/null || true`,
         `tail -n ${lines} /var/log/openclaw.log 2>/dev/null || true`,
@@ -115,7 +125,7 @@ export default {
       let logs = '';
       for (const cmd of commands) {
         try {
-          const result = await executeSshCommand(sshDetails.ip, sshDetails.port, cmd, privateKeyPath);
+          const result = await executeSshCommand(sshDetails.ip, sshDetails.port, cmd, privateKeyContent);
           if (result && result.trim() && result !== 'No logs available') {
             logs = result;
             break;
