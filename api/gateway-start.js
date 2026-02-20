@@ -1,5 +1,6 @@
 import { Client } from 'ssh2';
 import { getApiKey, notConfiguredResponse, proxyToRunPod } from '../lib/runpod-proxy.js';
+import { buildGatewayErrorPayload } from '../lib/gateway-errors.js';
 
 function corsHeaders() {
   return {
@@ -78,7 +79,7 @@ async function executeSshCommand(ip, port, command, privateKeyContent) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
@@ -87,29 +88,30 @@ export default {
       return jsonResponse({ error: 'Method not allowed' }, 405);
     }
 
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      const { status, body } = notConfiguredResponse();
-      return jsonResponse(body, status);
-    }
-
-    const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
-    const privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
-    if (!privateKeyContent) {
-      return jsonResponse({
-        error: 'SSH not configured',
-        details: 'SSH_PRIVATE_KEY is not set. Set it in Vercel Environment Variables.',
-        code: 'SSH_KEY_NOT_CONFIGURED',
-      }, 503);
-    }
-
     try {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        const { status, body } = notConfiguredResponse();
+        return jsonResponse(body, status);
+      }
+
+      const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
+      const privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
+      if (!privateKeyContent) {
+        return jsonResponse({
+          error: 'SSH not configured',
+          details: 'SSH_PRIVATE_KEY is not set. Set it in Vercel Environment Variables.',
+          code: 'SSH_KEY_NOT_CONFIGURED',
+        }, 503);
+      }
+
       const sshDetails = await getPodSshDetails(gatewayPodId, apiKey);
 
       if (!sshDetails) {
         return jsonResponse({
           error: 'Cannot connect to Gateway pod',
-          details: 'Pod is not running or SSH is not available'
+          details: 'Pod is not running or SSH is not available',
+          code: 'POD_UNAVAILABLE',
         }, 503);
       }
 
@@ -124,14 +126,11 @@ export default {
         success: true,
         message: 'Gateway start initiated',
         output: result,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-    } catch (error) {
-      console.error('[Gateway Start Error]', error);
-      return jsonResponse({
-        error: 'Failed to start gateway',
-        details: error.message
-      }, 500);
+    } catch (err) {
+      console.error('[Gateway Start Error]', err);
+      return jsonResponse(buildGatewayErrorPayload(err, 'start'), 500);
     }
   },
 };

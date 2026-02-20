@@ -170,12 +170,13 @@ export default function GatewayStatusCard() {
         )}
 
         {error && (
-          <div className="mb-4 bg-red-900/30 border border-red-500/50 rounded-lg p-3 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400" />
-            <span className="text-red-400 text-sm">{error}</span>
+          <div className="mb-4 bg-red-900/30 border border-red-500/50 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <p className="text-red-400 text-sm flex-1 min-w-0 break-words">{error}</p>
             <button
               onClick={clearError}
-              className="ml-auto text-red-400 hover:text-red-300"
+              className="shrink-0 text-red-400 hover:text-red-300 p-1"
+              aria-label="Dismiss error"
             >
               <X className="w-4 h-4" />
             </button>

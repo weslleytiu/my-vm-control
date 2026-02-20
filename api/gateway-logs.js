@@ -1,5 +1,6 @@
 import { Client } from 'ssh2';
 import { getApiKey, notConfiguredResponse, proxyToRunPod } from '../lib/runpod-proxy.js';
+import { buildGatewayErrorPayload } from '../lib/gateway-errors.js';
 
 function corsHeaders() {
   return {
@@ -78,50 +79,51 @@ async function executeSshCommand(ip, port, command, privateKeyContent) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
-    
+
     if (request.method !== 'GET') {
       return jsonResponse({ error: 'Method not allowed' }, 405);
     }
 
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      const { status, body } = notConfiguredResponse();
-      return jsonResponse(body, status);
-    }
-
-    const url = new URL(request.url);
-    const lines = parseInt(url.searchParams.get('lines') || '100', 10);
-    const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
-    const privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
-    if (!privateKeyContent) {
-      return jsonResponse({
-        error: 'SSH not configured',
-        details: 'SSH_PRIVATE_KEY is not set. Set it in Vercel Environment Variables.',
-        code: 'SSH_KEY_NOT_CONFIGURED',
-      }, 503);
-    }
-    
     try {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        const { status, body } = notConfiguredResponse();
+        return jsonResponse(body, status);
+      }
+
+      const url = new URL(request.url);
+      const lines = parseInt(url.searchParams.get('lines') || '100', 10);
+      const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
+      const privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
+      if (!privateKeyContent) {
+        return jsonResponse({
+          error: 'SSH not configured',
+          details: 'SSH_PRIVATE_KEY is not set. Set it in Vercel Environment Variables.',
+          code: 'SSH_KEY_NOT_CONFIGURED',
+        }, 503);
+      }
+
       const sshDetails = await getPodSshDetails(gatewayPodId, apiKey);
-      
+
       if (!sshDetails) {
         return jsonResponse({
           error: 'Cannot connect to Gateway pod',
-          details: 'Pod is not running or SSH is not available'
+          details: 'Pod is not running or SSH is not available.',
+          code: 'POD_UNAVAILABLE',
         }, 503);
       }
-      
+
       const commands = [
         `journalctl -u openclaw -n ${lines} --no-pager 2>/dev/null || true`,
         `tail -n ${lines} /var/log/openclaw.log 2>/dev/null || true`,
         `pm2 logs openclaw --lines ${lines} --nostream 2>/dev/null || true`,
         `docker logs openclaw --tail ${lines} 2>/dev/null || true`,
       ];
-      
+
       let logs = '';
       for (const cmd of commands) {
         try {
@@ -130,25 +132,22 @@ export default {
             logs = result;
             break;
           }
-        } catch (e) {
-          // Continua tentando os outros comandos
+        } catch {
+          // Try next command
         }
       }
-      
+
       if (!logs) {
         logs = 'No logs found. The Gateway may not be running or logs are not available.';
       }
-      
+
       return jsonResponse({
         logs,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-    } catch (error) {
-      console.error('[Gateway Logs Error]', error);
-      return jsonResponse({
-        error: 'Failed to fetch logs',
-        details: error.message
-      }, 500);
+    } catch (err) {
+      console.error('[Gateway Logs Error]', err);
+      return jsonResponse(buildGatewayErrorPayload(err, 'logs'), 500);
     }
   },
 };

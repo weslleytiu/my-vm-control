@@ -1,8 +1,6 @@
 import { Client } from 'ssh2';
 import { getApiKey, notConfiguredResponse, proxyToRunPod } from '../lib/runpod-proxy.js';
-
-const GATEWAY_URL = 'https://oyxpvo2t8uxuuk-18789.proxy.runpod.net';
-const GATEWAY_TOKEN = 'dcb99a5cbec2dfd354b3303e6bd8e986bb1395f4e6cbeb2d';
+import { buildGatewayErrorPayload } from '../lib/gateway-errors.js';
 
 function corsHeaders() {
   return {
@@ -81,60 +79,58 @@ async function executeSshCommand(ip, port, command, privateKeyContent) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
-    
+
     if (request.method !== 'POST') {
       return jsonResponse({ error: 'Method not allowed' }, 405);
     }
 
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      const { status, body } = notConfiguredResponse();
-      return jsonResponse(body, status);
-    }
-
-    const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
-    const privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
-    if (!privateKeyContent) {
-      return jsonResponse({
-        error: 'SSH not configured',
-        details: 'SSH_PRIVATE_KEY is not set. Set it in Vercel Environment Variables.',
-        code: 'SSH_KEY_NOT_CONFIGURED',
-      }, 503);
-    }
-    
     try {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        const { status, body } = notConfiguredResponse();
+        return jsonResponse(body, status);
+      }
+
+      const gatewayPodId = process.env.GATEWAY_POD_ID || 'oyxpvo2t8uxuuk';
+      const privateKeyContent = normalizePrivateKey(process.env.SSH_PRIVATE_KEY);
+      if (!privateKeyContent) {
+        return jsonResponse({
+          error: 'SSH not configured',
+          details: 'SSH_PRIVATE_KEY is not set. Set it in Vercel Environment Variables.',
+          code: 'SSH_KEY_NOT_CONFIGURED',
+        }, 503);
+      }
+
       const sshDetails = await getPodSshDetails(gatewayPodId, apiKey);
-      
+
       if (!sshDetails) {
         return jsonResponse({
           error: 'Cannot connect to Gateway pod',
-          details: 'Pod is not running or SSH is not available'
+          details: 'Pod is not running or SSH is not available.',
+          code: 'POD_UNAVAILABLE',
         }, 503);
       }
-      
+
       const result = await executeSshCommand(
         sshDetails.ip,
         sshDetails.port,
         'export PATH="/workspace/.npm-global/bin:/usr/local/bin:$PATH"; openclaw gateway restart',
         privateKeyContent
       );
-      
+
       return jsonResponse({
         success: true,
         message: 'Gateway restart initiated',
         output: result,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-    } catch (error) {
-      console.error('[Gateway Restart Error]', error);
-      return jsonResponse({
-        error: 'Failed to restart gateway',
-        details: error.message
-      }, 500);
+    } catch (err) {
+      console.error('[Gateway Restart Error]', err);
+      return jsonResponse(buildGatewayErrorPayload(err, 'restart'), 500);
     }
   },
 };

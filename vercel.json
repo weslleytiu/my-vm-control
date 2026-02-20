@@ -3,5 +3,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/gateway-start.js": { "maxDuration": 60 },
+    "api/gateway-restart.js": { "maxDuration": 60 },
+    "api/gateway-logs.js": { "maxDuration": 30 }
+  }
 }

@@ -32,14 +32,13 @@ export function useGatewayControl(): UseGatewayControlReturn {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.details || 'Failed to restart gateway');
+        const msg = data.details || data.error || 'Failed to restart gateway';
+        throw new Error(data.hint ? `${msg} — ${data.hint}` : msg);
       }
 
-      // Aguarda um pouco e verifica o status
       await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       throw err;
     } finally {
       setIsRestarting(false);
@@ -58,14 +57,13 @@ export function useGatewayControl(): UseGatewayControlReturn {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.details || 'Failed to start gateway');
+        const msg = data.details || data.error || 'Failed to start gateway';
+        throw new Error(data.hint ? `${msg} — ${data.hint}` : msg);
       }
 
-      // Aguarda um pouco e verifica o status
       await new Promise(resolve => setTimeout(resolve, 3000));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       throw err;
     } finally {
       setIsStarting(false);
@@ -78,15 +76,15 @@ export function useGatewayControl(): UseGatewayControlReturn {
     try {
       const response = await fetch(`/api/gateway-logs?lines=${lines}`);
       const data = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(data.error || data.details || 'Failed to fetch logs');
+        const msg = data.details || data.error || 'Failed to fetch logs';
+        throw new Error(data.hint ? `${msg} — ${data.hint}` : msg);
       }
-      
+
       setLogs(data.logs || 'No logs available');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       setLogs('');
     } finally {
       setIsLoadingLogs(false);
