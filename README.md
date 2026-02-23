@@ -1,72 +1,139 @@
 # my-vm-control
 
-A simple dashboard to control RunPod Pods: list, start, and stop your GPU/CPU instances from one place.
+A dashboard to manage RunPod Pods and an OpenClaw Gateway from one place. List, start, stop, restart, and reset GPU/CPU instances, run remote setup scripts via SSH, and monitor your gateway — all from a single React UI.
 
-## RunPod integration
+## Features
 
-The app uses a **backend proxy** to talk to the [RunPod API](https://docs.runpod.io/overview), so the API key never runs in the browser and CORS is avoided.
+- **Pod management** — list, start, stop, restart, and reset RunPod Pods.
+- **Pod details** — view region, instance type, vCPUs, memory, disk, cost, and public IP.
+- **SSH quick-connect** — displays the SSH command for any running pod with a one-click copy button.
+- **Remote exec** — run an OpenClaw setup script on a pod directly from the dashboard (via SSH).
+- **OpenClaw Gateway** — monitor health, start, restart, and view logs of the gateway service.
+- **Settings panel** — configure gateway pod and other options from the UI.
+- **Vercel-ready** — deploy as serverless functions with zero long-running processes.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript, Tailwind CSS, Vite |
+| Backend (local) | Express, Node.js |
+| Backend (production) | Vercel Serverless Functions |
+| SSH | ssh2 (Node.js) |
+| Icons | lucide-react |
+
+## Quick start
 
 ### 1. Get a RunPod API key
 
 1. Open [RunPod Console → Settings → API Keys](https://docs.runpod.io/get-started/api-keys).
-2. Create a new API key (e.g. Read/Write for Pods).
-3. Copy the key.
+2. Create a new key (Read/Write for Pods).
+3. Copy it.
 
-### 2. Configure the server
-
-In the project root, create a `.env` file (see `.env.example`):
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and set your key:
+Edit `.env` and fill in the required values:
 
 ```
 RUNPOD_API_KEY=your_runpod_api_key_here
 ```
 
-### 3. Run the app
+See `.env.example` for all available options (`PORT`, `CORS_ORIGIN`, `SSH_PRIVATE_KEY`, `GATEWAY_POD_ID`).
 
-**Option A – two terminals**
+### 3. Install dependencies
 
 ```bash
-# Terminal 1: start the proxy server
+npm install
+```
+
+### 4. Run the app
+
+**Option A — two terminals**
+
+```bash
+# Terminal 1: backend proxy
 npm run server
 
-# Terminal 2: start the frontend
+# Terminal 2: frontend
 npm run dev
 ```
 
-**Option B – one command**
+**Option B — single command**
 
 ```bash
 npm run dev:all
 ```
 
-Then open http://localhost:5173, sign in with the demo credentials, and your Pods will appear (if the server has a valid `RUNPOD_API_KEY`).
+Then open http://localhost:5173.
 
-### What you can do
+## Project structure
 
-- **List Pods**: See all your RunPod Pods (excluding Serverless workers).
-- **Start / Stop**: Start or stop a Pod from the dashboard.
-- **Details**: View region, instance type, CPU, memory, cost, and public IP for each Pod.
+```
+├── api/                  # Vercel serverless functions
+│   ├── pods.js           # GET /api/pods
+│   ├── pods/[id].js      # GET /api/pods/:id
+│   ├── pods/[id]/start.js
+│   ├── pods/[id]/stop.js
+│   ├── pods/[id]/restart.js
+│   ├── pods/[id]/reset.js
+│   ├── pods/[id]/exec.js # POST — run a command on the pod via SSH
+│   ├── gateway-health.js
+│   ├── gateway-start.js
+│   ├── gateway-restart.js
+│   └── gateway-logs.js
+├── server/
+│   └── index.js          # Express dev server (mirrors the api/ routes)
+├── src/
+│   ├── api/runpod.ts     # Frontend API client
+│   ├── components/
+│   │   ├── Dashboard.tsx
+│   │   ├── GatewayStatusCard.tsx
+│   │   ├── Login.tsx
+│   │   └── Settings.tsx
+│   ├── contexts/
+│   │   └── AuthContext.tsx
+│   └── hooks/
+│       ├── useGatewayControl.ts
+│       └── useGatewayStatus.ts
+├── lib/                  # Shared server-side utilities
+├── .env.example
+├── vercel.json
+└── package.json
+```
 
-### Deploy on Vercel (no server to run)
-
-The project is set up for [Vercel](https://vercel.com): the proxy runs as **serverless functions** under `/api`, so there is no long-running server.
+## Deploy on Vercel
 
 1. Push the repo to GitHub and [import the project in Vercel](https://vercel.com/new).
-2. In the Vercel project, go to **Settings → Environment Variables** and add:
-   - **Name**: `RUNPOD_API_KEY`  
-   - **Value**: your RunPod API key  
-   (Apply to Production, Preview, Development as needed.)
-3. Deploy. The frontend is built from the repo; the `/api/pods` routes are deployed as serverless functions. The app will call them on the same origin (no CORS).
+2. In **Settings → Environment Variables**, add:
+   - `RUNPOD_API_KEY` — your RunPod API key
+   - `SSH_PRIVATE_KEY` — full private key content (for gateway and exec features)
+   - `GATEWAY_POD_ID` — (optional) the pod ID where the gateway runs
+3. Deploy. The `/api/*` routes run as serverless functions; the frontend is served as static files.
 
-Locally you still use the Express server (`npm run server` + `npm run dev` or `npm run dev:all`); in production on Vercel, only the serverless API and static frontend are used.
+## Environment variables
 
-### Frontend API URL (optional)
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `RUNPOD_API_KEY` | Yes | — | RunPod API key |
+| `PORT` | No | `3000` | Express server port (local dev only) |
+| `CORS_ORIGIN` | No | `http://localhost:5173` | Allowed CORS origin (local dev only) |
+| `SSH_PRIVATE_KEY` | No | — | SSH private key content (for Vercel / gateway ops) |
+| `SSH_PRIVATE_KEY_PATH` | No | `~/.ssh/id_ed25519` | Path to SSH key file (local dev only) |
+| `GATEWAY_POD_ID` | No | — | Pod ID where the OpenClaw Gateway runs |
+| `VITE_API_URL` | No | auto-detected | Override the API base URL for the frontend |
 
-- **Local dev**: the frontend uses `http://localhost:3000/api` (Express server).
-- **Production (Vercel)**: the frontend uses relative URLs (`/api`), so no extra config.
-- To point the frontend at another API base URL, set `VITE_API_URL` (e.g. `VITE_API_URL=https://your-api.com/api`) and rebuild.
+## Available scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start Vite dev server (frontend only) |
+| `npm run server` | Start Express backend proxy |
+| `npm run dev:all` | Start both frontend and backend concurrently |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint |
+| `npm run typecheck` | Run TypeScript type checking |
+| `npm run preview` | Preview the production build locally |
