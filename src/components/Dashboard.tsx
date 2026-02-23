@@ -252,7 +252,7 @@ export default function Dashboard() {
             <div className="bg-blue-600 p-2 rounded-lg">
               <Server className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-red-500">VM Control Panel</h1>
+            <h1 className="text-xl font-bold text-green-500">VM Control Panel</h1>
           </div>
           <div className="flex items-center gap-2">
             <button
