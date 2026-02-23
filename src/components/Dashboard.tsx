@@ -245,7 +245,7 @@ export default function Dashboard() {
   const selectedPod = selectedPodId ? pods.find((p) => p.id === selectedPodId) : null;
 
   return (
-    <div className="min-h-screen bg-green-100">
+    <div className="min-h-screen bg-gray-950">
       <header className="bg-gray-800 border-b border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
