@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle, Terminal, Copy, ExternalLink, RotateCw, Play, Trash2 } from 'lucide-react';
 import { listPods, startPod, stopPod, restartPod, resetPod, execPod, RunPodApiError, type RunPodPod } from '../api/runpod';
 import Settings from './Settings';
-import GatewayStatusCard from './GatewayStatusCard';
 
 const RUNPOD_CONSOLE_PODS_URL = 'https://console.runpod.io/pods';
 
@@ -277,8 +276,6 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="max-w-2xl mx-auto">
-          <GatewayStatusCard />
-
           {loading && (
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 flex items-center justify-center gap-3">
               <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
