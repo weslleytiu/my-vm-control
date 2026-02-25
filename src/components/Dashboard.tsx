@@ -452,68 +452,6 @@ export default function Dashboard() {
                               </div>
                             </div>
 
-                            <div className="bg-gray-900/50 rounded-lg p-4 mb-6">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Terminal className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-300">Connect / Terminal</span>
-                              </div>
-                              <p className="text-gray-400 text-xs mb-3">
-                                Use SSH in your machine or open the web terminal in RunPod.
-                              </p>
-                              {getSshCommand(selectedPod) ? (
-                                <div className="flex flex-wrap items-center gap-2 mb-3">
-                                  <code className="flex-1 min-w-0 text-xs text-green-400 bg-gray-800 px-2 py-2 rounded break-all">
-                                    {getSshCommand(selectedPod)}
-                                  </code>
-                                  <button
-                                    type="button"
-                                    onClick={() => getSshCommand(selectedPod) && handleCopySsh(getSshCommand(selectedPod)!)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-xs shrink-0"
-                                  >
-                                    <Copy className="w-3.5 h-3.5" />
-                                    {copied ? 'Copied!' : 'Copy'}
-                                  </button>
-                                </div>
-                              ) : (
-                                <p className="text-gray-500 text-xs mb-3">
-                                  SSH (root@IP -p port) is available when the pod is running and has port 22 exposed.
-                                </p>
-                              )}
-                              {getSshCommand(selectedPod) && (
-                                <div className="mt-3 flex flex-col gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={handleRunSetup}
-                                    disabled={setupLoading || actionLoading}
-                                    className="inline-flex items-center gap-1.5 w-fit px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs transition-colors"
-                                  >
-                                    {setupLoading ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                      <Play className="w-3.5 h-3.5" />
-                                    )}
-                                    Run setup
-                                  </button>
-                                  <p className="text-gray-500 text-xs mt-1">
-                                    Applies OpenClaw config (allowedOrigins, open pairing), starts gateway in background. After pod restart, click again to reconfigure and start.
-                                  </p>
-                                  {setupOutput !== null && (
-                                    <pre className="min-w-0 p-2 text-xs text-gray-300 bg-gray-800 rounded overflow-auto max-h-32">
-                                      {setupOutput}
-                                    </pre>
-                                  )}
-                                </div>
-                              )}
-                              <a
-                                href={RUNPOD_CONSOLE_PODS_URL}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:underline mt-3"
-                              >
-                                Open RunPod Console → Connect → Web Terminal or SSH
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </div>
 
                             {actionLoading && (
                               <div className="mb-6 bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 flex items-center gap-3">
