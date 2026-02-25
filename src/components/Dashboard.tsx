@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle, Terminal, Copy, ExternalLink, RotateCw, Play, Trash2 } from 'lucide-react';
+import { LogOut, Server, Loader2, Power, Settings as SettingsIcon, RefreshCw, AlertCircle, Terminal, Copy, ExternalLink, RotateCw, Play, Trash2, Bot } from 'lucide-react';
 import { listPods, startPod, stopPod, restartPod, resetPod, execPod, RunPodApiError, type RunPodPod } from '../api/runpod';
-import Settings from './Settings';
 
 const RUNPOD_CONSOLE_PODS_URL = 'https://console.runpod.io/pods';
+type MenuKey = 'computer' | 'agents' | 'settings';
 
 function formatPodStatus(status: RunPodPod['desiredStatus']): string {
   switch (status) {
@@ -56,12 +56,12 @@ function getSshCommand(pod: RunPodPod): string | null {
 export default function Dashboard() {
   const { logout } = useAuth();
   const [pods, setPods] = useState<RunPodPod[]>([]);
+  const [activeMenu, setActiveMenu] = useState<MenuKey>('computer');
   const [selectedPodId, setSelectedPodId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
@@ -243,6 +243,12 @@ export default function Dashboard() {
   };
 
   const selectedPod = selectedPodId ? pods.find((p) => p.id === selectedPodId) : null;
+  const menuItems: Array<{ key: MenuKey; label: string; icon: typeof Server }> = [
+    { key: 'computer', label: 'Computer', icon: Server },
+    { key: 'agents', label: 'Agents', icon: Bot },
+    { key: 'settings', label: 'Settings', icon: SettingsIcon },
+  ];
+  const renderBlankPage = () => <div className="bg-gray-800 rounded-xl border border-gray-700 min-h-[520px]" />;
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -256,14 +262,6 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setSettingsOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200"
-              title="Settings"
-            >
-              <SettingsIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Settings</span>
-            </button>
-            <button
               onClick={logout}
               className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200"
             >
@@ -274,267 +272,313 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="max-w-2xl mx-auto">
-          {loading && (
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 flex items-center justify-center gap-3">
-              <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
-              <span className="text-gray-400">Loading pods...</span>
-            </div>
-          )}
-
-          {!loading && error && (
-            <div className="mb-6 bg-red-900/30 border border-red-500/50 rounded-lg p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-red-400 font-medium">{error}</p>
-                <button
-                  onClick={loadPods}
-                  className="mt-2 text-sm text-red-300 hover:text-red-200 underline"
-                >
-                  Retry
-                </button>
-              </div>
-            </div>
-          )}
-
-          {!loading && pods.length === 0 && !error && (
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center">
-              <p className="text-gray-400 mb-4">No RunPod Pods found.</p>
-              <a
-                href={RUNPOD_CONSOLE_PODS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
-              >
-                Create a Pod in RunPod Console
-              </a>
-            </div>
-          )}
-
-          {!loading && pods.length > 0 && (
-            <>
-              {pods.length > 1 && (
-                <div className="mb-4">
-                  <label htmlFor="pod-select" className="block text-sm font-medium text-gray-400 mb-2">
-                    Select Pod
-                  </label>
-                  <select
-                    id="pod-select"
-                    value={selectedPodId ?? ''}
-                    onChange={(e) => setSelectedPodId(e.target.value || null)}
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
+          <aside className="bg-gray-800 rounded-xl border border-gray-700 p-3 h-fit">
+            <nav className="space-y-2">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeMenu === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setActiveMenu(item.key)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      isActive
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                    }`}
                   >
-                    {pods.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name || p.id} ({formatPodStatus(p.desiredStatus)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
 
-              {selectedPod && (
-                <div className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden">
-                  <div className="p-8">
-                    <div className="flex items-center justify-between mb-8">
-                      <div>
-                        <h2 className="text-2xl font-bold text-white mb-2">
-                          {selectedPod.name || 'Unnamed Pod'}
-                        </h2>
-                        <p className="text-gray-400 text-sm">{selectedPod.id}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
+          <section>
+            {activeMenu === 'computer' && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <p className="text-sm text-gray-400 mb-1">Computers</p>
+                    <p className="text-3xl font-bold text-white">{loading ? '—' : pods.length}</p>
+                  </div>
+                  <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <p className="text-sm text-gray-400 mb-1">Agents</p>
+                    <p className="text-3xl font-bold text-white">0</p>
+                  </div>
+                </div>
+
+                <div className="max-w-2xl">
+                  {loading && (
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 flex items-center justify-center gap-3">
+                      <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+                      <span className="text-gray-400">Loading pods...</span>
+                    </div>
+                  )}
+
+                  {!loading && error && (
+                    <div className="mb-6 bg-red-900/30 border border-red-500/50 rounded-lg p-4 flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-red-400 font-medium">{error}</p>
                         <button
                           onClick={loadPods}
-                          disabled={loading}
-                          className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors"
-                          title="Refresh"
+                          className="mt-2 text-sm text-red-300 hover:text-red-200 underline"
                         >
-                          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                          Retry
                         </button>
-                        <div
-                          className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                            isPodRunning(selectedPod)
-                              ? 'bg-green-900/30 border border-green-500/50'
-                              : 'bg-red-900/30 border border-red-500/50'
-                          }`}
-                        >
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              isPodRunning(selectedPod) ? 'bg-green-500' : 'bg-red-500'
-                            } animate-pulse`}
-                          />
-                          <span
-                            className={`text-sm font-medium ${
-                              isPodRunning(selectedPod) ? 'text-green-400' : 'text-red-400'
-                            }`}
-                          >
-                            {formatPodStatus(selectedPod.desiredStatus)}
-                          </span>
-                        </div>
                       </div>
                     </div>
+                  )}
 
-                    <div className="bg-gray-900/50 rounded-lg p-6 mb-8">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-400 mb-1">Region</p>
-                          <p className="text-white font-medium">{getRegion(selectedPod)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 mb-1">Instance Type</p>
-                          <p className="text-white font-medium">{getInstanceType(selectedPod)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 mb-1">CPU</p>
-                          <p className="text-white font-medium">{selectedPod.vcpuCount} vCPUs</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 mb-1">Memory</p>
-                          <p className="text-white font-medium">{selectedPod.memoryInGb} GB</p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-gray-400 mb-1">Disk</p>
-                          <p className="text-white font-medium text-sm">{getDiskSummary(selectedPod)}</p>
-                        </div>
-                        {selectedPod.costPerHr != null && (
-                          <div>
-                            <p className="text-gray-400 mb-1">Cost</p>
-                            <p className="text-white font-medium">{selectedPod.costPerHr} credits/hr</p>
-                          </div>
-                        )}
-                        {selectedPod.publicIp && (
-                          <div>
-                            <p className="text-gray-400 mb-1">Public IP</p>
-                            <p className="text-white font-medium font-mono text-xs">
-                              {selectedPod.publicIp}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-900/50 rounded-lg p-4 mb-6">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Terminal className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm font-medium text-gray-300">Connect / Terminal</span>
-                      </div>
-                      <p className="text-gray-400 text-xs mb-3">
-                        Use SSH in your machine or open the web terminal in RunPod.
-                      </p>
-                      {getSshCommand(selectedPod) ? (
-                        <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <code className="flex-1 min-w-0 text-xs text-green-400 bg-gray-800 px-2 py-2 rounded break-all">
-                            {getSshCommand(selectedPod)}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={() => getSshCommand(selectedPod) && handleCopySsh(getSshCommand(selectedPod)!)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-xs shrink-0"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            {copied ? 'Copied!' : 'Copy'}
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="text-gray-500 text-xs mb-3">
-                          SSH (root@IP -p port) is available when the pod is running and has port 22 exposed.
-                        </p>
-                      )}
-                      {getSshCommand(selectedPod) && (
-                        <div className="mt-3 flex flex-col gap-2">
-                          <button
-                            type="button"
-                            onClick={handleRunSetup}
-                            disabled={setupLoading || actionLoading}
-                            className="inline-flex items-center gap-1.5 w-fit px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs transition-colors"
-                          >
-                            {setupLoading ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Play className="w-3.5 h-3.5" />
-                            )}
-                            Run setup
-                          </button>
-                          <p className="text-gray-500 text-xs mt-1">
-                            Applies OpenClaw config (allowedOrigins, open pairing), starts gateway in background. After pod restart, click again to reconfigure and start.
-                          </p>
-                          {setupOutput !== null && (
-                            <pre className="min-w-0 p-2 text-xs text-gray-300 bg-gray-800 rounded overflow-auto max-h-32">
-                              {setupOutput}
-                            </pre>
-                          )}
-                        </div>
-                      )}
+                  {!loading && pods.length === 0 && !error && (
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center">
+                      <p className="text-gray-400 mb-4">No RunPod Pods found.</p>
                       <a
                         href={RUNPOD_CONSOLE_PODS_URL}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:underline mt-3"
+                        className="text-blue-400 hover:underline"
                       >
-                        Open RunPod Console → Connect → Web Terminal or SSH
-                        <ExternalLink className="w-3 h-3" />
+                        Create a Pod in RunPod Console
                       </a>
                     </div>
+                  )}
 
-                    {actionLoading && (
-                      <div className="mb-6 bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 flex items-center gap-3">
-                        <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0" />
-                        <span className="text-blue-400 font-medium">{actionMessage}</span>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={handleTogglePod}
-                        disabled={actionLoading || selectedPod.locked}
-                        className={`w-full py-4 rounded-lg font-semibold text-lg flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                          isPodRunning(selectedPod)
-                            ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/20'
-                            : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20'
-                        }`}
-                      >
-                        <Power className="w-6 h-6" />
-                        {actionLoading
-                          ? 'Processing...'
-                          : isPodRunning(selectedPod)
-                            ? 'Stop Pod'
-                            : 'Start Pod'}
-                      </button>
-                      {isPodRunning(selectedPod) && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={handleRestartPod}
-                            disabled={actionLoading || selectedPod.locked}
-                            className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  {!loading && pods.length > 0 && (
+                    <>
+                      {pods.length > 1 && (
+                        <div className="mb-4">
+                          <label htmlFor="pod-select" className="block text-sm font-medium text-gray-400 mb-2">
+                            Select Pod
+                          </label>
+                          <select
+                            id="pod-select"
+                            value={selectedPodId ?? ''}
+                            onChange={(e) => setSelectedPodId(e.target.value || null)}
+                            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
-                            <RotateCw className="w-5 h-5" />
-                            Restart Pod
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowResetConfirm(true)}
-                            disabled={actionLoading || selectedPod.locked}
-                            className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                            Reset machine
-                          </button>
-                        </>
+                            {pods.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name || p.id} ({formatPodStatus(p.desiredStatus)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
-                    </div>
-                    {selectedPod.locked && (
-                      <p className="mt-2 text-sm text-gray-500 text-center">
-                        This pod is locked and cannot be stopped from here.
-                      </p>
-                    )}
-                  </div>
+
+                      {selectedPod && (
+                        <div className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden">
+                          <div className="p-8">
+                            <div className="flex items-center justify-between mb-8">
+                              <div>
+                                <h2 className="text-2xl font-bold text-white mb-2">
+                                  {selectedPod.name || 'Unnamed Pod'}
+                                </h2>
+                                <p className="text-gray-400 text-sm">{selectedPod.id}</p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={loadPods}
+                                  disabled={loading}
+                                  className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors"
+                                  title="Refresh"
+                                >
+                                  <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                                </button>
+                                <div
+                                  className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+                                    isPodRunning(selectedPod)
+                                      ? 'bg-green-900/30 border border-green-500/50'
+                                      : 'bg-red-900/30 border border-red-500/50'
+                                  }`}
+                                >
+                                  <div
+                                    className={`w-3 h-3 rounded-full ${
+                                      isPodRunning(selectedPod) ? 'bg-green-500' : 'bg-red-500'
+                                    } animate-pulse`}
+                                  />
+                                  <span
+                                    className={`text-sm font-medium ${
+                                      isPodRunning(selectedPod) ? 'text-green-400' : 'text-red-400'
+                                    }`}
+                                  >
+                                    {formatPodStatus(selectedPod.desiredStatus)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-900/50 rounded-lg p-6 mb-8">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <p className="text-gray-400 mb-1">Region</p>
+                                  <p className="text-white font-medium">{getRegion(selectedPod)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-400 mb-1">Instance Type</p>
+                                  <p className="text-white font-medium">{getInstanceType(selectedPod)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-400 mb-1">CPU</p>
+                                  <p className="text-white font-medium">{selectedPod.vcpuCount} vCPUs</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-400 mb-1">Memory</p>
+                                  <p className="text-white font-medium">{selectedPod.memoryInGb} GB</p>
+                                </div>
+                                <div className="col-span-2">
+                                  <p className="text-gray-400 mb-1">Disk</p>
+                                  <p className="text-white font-medium text-sm">{getDiskSummary(selectedPod)}</p>
+                                </div>
+                                {selectedPod.costPerHr != null && (
+                                  <div>
+                                    <p className="text-gray-400 mb-1">Cost</p>
+                                    <p className="text-white font-medium">{selectedPod.costPerHr} credits/hr</p>
+                                  </div>
+                                )}
+                                {selectedPod.publicIp && (
+                                  <div>
+                                    <p className="text-gray-400 mb-1">Public IP</p>
+                                    <p className="text-white font-medium font-mono text-xs">
+                                      {selectedPod.publicIp}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-900/50 rounded-lg p-4 mb-6">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Terminal className="w-4 h-4 text-gray-400" />
+                                <span className="text-sm font-medium text-gray-300">Connect / Terminal</span>
+                              </div>
+                              <p className="text-gray-400 text-xs mb-3">
+                                Use SSH in your machine or open the web terminal in RunPod.
+                              </p>
+                              {getSshCommand(selectedPod) ? (
+                                <div className="flex flex-wrap items-center gap-2 mb-3">
+                                  <code className="flex-1 min-w-0 text-xs text-green-400 bg-gray-800 px-2 py-2 rounded break-all">
+                                    {getSshCommand(selectedPod)}
+                                  </code>
+                                  <button
+                                    type="button"
+                                    onClick={() => getSshCommand(selectedPod) && handleCopySsh(getSshCommand(selectedPod)!)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-xs shrink-0"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                    {copied ? 'Copied!' : 'Copy'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <p className="text-gray-500 text-xs mb-3">
+                                  SSH (root@IP -p port) is available when the pod is running and has port 22 exposed.
+                                </p>
+                              )}
+                              {getSshCommand(selectedPod) && (
+                                <div className="mt-3 flex flex-col gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleRunSetup}
+                                    disabled={setupLoading || actionLoading}
+                                    className="inline-flex items-center gap-1.5 w-fit px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs transition-colors"
+                                  >
+                                    {setupLoading ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Play className="w-3.5 h-3.5" />
+                                    )}
+                                    Run setup
+                                  </button>
+                                  <p className="text-gray-500 text-xs mt-1">
+                                    Applies OpenClaw config (allowedOrigins, open pairing), starts gateway in background. After pod restart, click again to reconfigure and start.
+                                  </p>
+                                  {setupOutput !== null && (
+                                    <pre className="min-w-0 p-2 text-xs text-gray-300 bg-gray-800 rounded overflow-auto max-h-32">
+                                      {setupOutput}
+                                    </pre>
+                                  )}
+                                </div>
+                              )}
+                              <a
+                                href={RUNPOD_CONSOLE_PODS_URL}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:underline mt-3"
+                              >
+                                Open RunPod Console → Connect → Web Terminal or SSH
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+
+                            {actionLoading && (
+                              <div className="mb-6 bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 flex items-center gap-3">
+                                <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0" />
+                                <span className="text-blue-400 font-medium">{actionMessage}</span>
+                              </div>
+                            )}
+
+                            <div className="flex flex-col gap-3">
+                              <button
+                                onClick={handleTogglePod}
+                                disabled={actionLoading || selectedPod.locked}
+                                className={`w-full py-4 rounded-lg font-semibold text-lg flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                  isPodRunning(selectedPod)
+                                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/20'
+                                    : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20'
+                                }`}
+                              >
+                                <Power className="w-6 h-6" />
+                                {actionLoading
+                                  ? 'Processing...'
+                                  : isPodRunning(selectedPod)
+                                    ? 'Stop Pod'
+                                    : 'Start Pod'}
+                              </button>
+                              {isPodRunning(selectedPod) && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={handleRestartPod}
+                                    disabled={actionLoading || selectedPod.locked}
+                                    className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <RotateCw className="w-5 h-5" />
+                                    Restart Pod
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowResetConfirm(true)}
+                                    disabled={actionLoading || selectedPod.locked}
+                                    className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                    Reset machine
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                            {selectedPod.locked && (
+                              <p className="mt-2 text-sm text-gray-500 text-center">
+                                This pod is locked and cannot be stopped from here.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-              )}
-            </>
-          )}
+              </>
+            )}
+
+            {activeMenu === 'agents' && renderBlankPage()}
+            {activeMenu === 'settings' && renderBlankPage()}
+          </section>
         </div>
       </main>
 
@@ -563,7 +607,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      <Settings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
